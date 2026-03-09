@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Exchange SE – Installation & Migration Runbook</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0d1117; --surface:#161b22; --surface2:#1c2128; --border:#30363d;
+  --accent:#2f81f7; --accent2:#388bfd; --green:#3fb950; --orange:#d29922;
+  --red:#f85149; --text:#e6edf3; --text2:#8b949e; --text3:#484f58;
+  --warn-bg:#271700; --warn-br:#9e6a03; --crit-bg:#1f0509; --crit-br:#da3633;
+  --info-bg:#051d4d; --info-br:#1f6feb; --ok-bg:#031a0e; --ok-br:#238636;
+  --sidebar:260px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--text);display:flex;min-height:100vh}
+
+/* SIDEBAR */
+#sidebar{width:var(--sidebar);background:var(--surface);border-right:1px solid var(--border);position:fixed;top:0;left:0;bottom:0;overflow-y:auto;z-index:100;padding-bottom:40px}
+#sidebar-header{padding:20px 18px 14px;border-bottom:1px solid var(--border)}
+.logo{font-size:10px;font-weight:700;letter-spacing:2px;color:var(--accent);text-transform:uppercase;margin-bottom:5px}
+#sidebar-header h2{font-size:12px;font-weight:500;color:var(--text2);line-height:1.4}
+.nav-group{padding:6px 0}
+.nav-label{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);padding:8px 18px 3px}
+.nav-item{display:flex;align-items:center;gap:8px;padding:6px 18px;text-decoration:none;color:var(--text2);font-size:12.5px;border-left:2px solid transparent;transition:all .15s}
+.nav-item:hover{color:var(--text);background:rgba(47,129,247,.06);border-left-color:var(--accent)}
+.nav-item.active{color:var(--accent2);background:rgba(47,129,247,.1);border-left-color:var(--accent)}
+.nav-pill{font-size:10px;font-weight:700;padding:1px 6px;border-radius:8px;margin-left:auto;flex-shrink:0}
+.np-warn{background:var(--orange);color:#000}
+.np-crit{background:var(--red);color:#fff}
+.np-ok{background:var(--green);color:#000}
+
+/* PROGRESS */
+#progress{position:fixed;top:0;left:0;height:2px;background:var(--accent);z-index:999;transition:width .2s}
+
+/* MAIN */
+#main{margin-left:var(--sidebar);flex:1;max-width:920px;padding:44px 48px 120px}
+
+/* HERO */
+.hero{background:linear-gradient(135deg,#0d1f3c 0%,#0d1117 60%);border:1px solid var(--border);border-radius:12px;padding:44px;margin-bottom:40px;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:-60px;right:-60px;width:220px;height:220px;background:radial-gradient(circle,rgba(47,129,247,.14) 0%,transparent 70%);pointer-events:none}
+.hero-tag{font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
+.hero h1{font-size:30px;font-weight:700;line-height:1.2;margin-bottom:8px}
+.hero-sub{font-size:14px;color:var(--text2);margin-bottom:24px;line-height:1.6}
+.hero-meta{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.mc{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:8px;padding:11px 13px}
+.mc .lbl{font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:3px}
+.mc .val{font-size:13px;font-weight:500;color:var(--text)}
+
+/* ALERTS */
+.alert{display:flex;gap:12px;padding:13px 15px;border-radius:8px;margin:14px 0;font-size:13px;line-height:1.6}
+.alert-icon{font-size:15px;flex-shrink:0;margin-top:1px}
+.alert-body{flex:1}
+.alert-body strong{display:block;margin-bottom:3px;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+.alert.crit{background:var(--crit-bg);border:1px solid var(--crit-br);color:#ffa198}
+.alert.crit strong{color:var(--red)}
+.alert.warn{background:var(--warn-bg);border:1px solid var(--warn-br);color:#e3b341}
+.alert.warn strong{color:var(--orange)}
+.alert.info{background:var(--info-bg);border:1px solid var(--info-br);color:#79c0ff}
+.alert.info strong{color:var(--accent2)}
+.alert.ok{background:var(--ok-bg);border:1px solid var(--ok-br);color:#56d364}
+.alert.ok strong{color:var(--green)}
+
+/* SECTIONS */
+.phase-section{margin-bottom:60px;scroll-margin-top:20px}
+.phase-header{display:flex;align-items:center;gap:14px;margin-bottom:22px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+.phase-num-badge{width:50px;height:50px;background:var(--accent);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0}
+.phase-num-badge .phl{font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,.65);line-height:1}
+.phase-num-badge .phn{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:#fff;line-height:1}
+.phase-title h2{font-size:20px;font-weight:700;line-height:1.2}
+.phase-title p{font-size:13px;color:var(--text2);margin-top:2px}
+
+h3{font-size:14px;font-weight:600;color:var(--text);margin:24px 0 10px;display:flex;align-items:center;gap:8px}
+h3::before{content:'';display:block;width:3px;height:14px;background:var(--accent);border-radius:2px;flex-shrink:0}
+p.desc{font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:10px}
+
+/* CODE */
+.code-block{background:#0d1117;border:1px solid var(--border);border-radius:8px;margin:10px 0 18px;overflow:hidden}
+.code-header{display:flex;align-items:center;justify-content:space-between;padding:7px 13px;background:var(--surface2);border-bottom:1px solid var(--border)}
+.code-lang{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3)}
+.copy-btn{font-size:11px;font-weight:500;color:var(--text2);background:none;border:1px solid var(--border);border-radius:4px;padding:2px 9px;cursor:pointer;transition:all .15s;font-family:inherit}
+.copy-btn:hover{color:var(--text);border-color:var(--accent)}
+.copy-btn.copied{color:var(--green);border-color:var(--ok-br)}
+pre{padding:14px 16px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.75;color:#c9d1d9}
+.cm{color:#484f58} .kw{color:#ff7b72} .fn{color:#79c0ff} .st{color:#a5d6ff} .va{color:#ffa657} .nu{color:#79c0ff}
+
+/* TABLES */
+.data-table{width:100%;border-collapse:collapse;margin:10px 0 18px;font-size:13px}
+.data-table th{background:var(--surface2);color:var(--text2);font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:9px 13px;text-align:left;border:1px solid var(--border)}
+.data-table td{padding:9px 13px;border:1px solid var(--border);vertical-align:top;line-height:1.5;color:var(--text)}
+.data-table tr:nth-child(even) td{background:rgba(255,255,255,.02)}
+.ph-col{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;color:var(--accent);white-space:nowrap}
+.when{font-size:11px;padding:2px 7px;border-radius:4px;background:rgba(47,129,247,.15);color:var(--accent2);white-space:nowrap}
+
+/* CHECKLIST */
+.checklist{list-style:none;margin:10px 0 18px;border-radius:8px;overflow:hidden;border:1px solid var(--border)}
+.checklist li{display:flex;align-items:flex-start;gap:10px;padding:9px 13px;border-top:1px solid var(--border);font-size:13px;color:var(--text);cursor:pointer;transition:background .1s;line-height:1.5;user-select:none}
+.checklist li:first-child{border-top:none}
+.checklist li:hover{background:rgba(255,255,255,.03)}
+.checklist li.done{color:var(--text3)}
+.chk{width:17px;height:17px;border:1.5px solid var(--border);border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;font-size:10px;transition:all .15s}
+li.done .chk{background:rgba(35,134,54,.2);border-color:var(--ok-br);color:var(--green)}
+
+/* STEP TABLE */
+.step-table{width:100%;border-collapse:collapse;margin:10px 0 18px;font-size:13px}
+.step-table td{padding:8px 13px;border:1px solid var(--border);line-height:1.5;vertical-align:top}
+.step-table tr:nth-child(even) td{background:rgba(255,255,255,.02)}
+.sn{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:var(--accent);text-align:center;width:30px}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+@media(max-width:860px){#sidebar{display:none}#main{margin-left:0;padding:24px 18px 80px}.hero-meta{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<nav id="sidebar">
+  <div id="sidebar-header">
+    <div class="logo">Exchange SE Runbook</div>
+    <h2>Installation &amp; Migration<br>DOMAIN.intern</h2>
+  </div>
+  <div class="nav-group">
+    <div class="nav-label">Übersicht</div>
+    <a href="#overview" class="nav-item">Gesamtübersicht</a>
+  </div>
+  <div class="nav-group">
+    <div class="nav-label">Vorbereitung</div>
+    <a href="#phase0" class="nav-item">0 – Vorbereitung <span class="nav-pill np-warn">Heute</span></a>
+  </div>
+  <div class="nav-group">
+    <div class="nav-label">Installation</div>
+    <a href="#phase1" class="nav-item">1 – OS Prerequisites</a>
+    <a href="#phase2" class="nav-item">2 – Exchange SE Setup</a>
+    <a href="#phase3" class="nav-item">3 – VDirs + Zertifikat <span class="nav-pill np-crit">SOFORT</span></a>
+    <a href="#phase4" class="nav-item">4 – Neue DAG</a>
+    <a href="#phase5" class="nav-item">5 – Datenbanken</a>
+  </div>
+  <div class="nav-group">
+    <div class="nav-label">Migration</div>
+    <a href="#phase6" class="nav-item">6 – Kemp LoadBalancer</a>
+    <a href="#phase7" class="nav-item">7 – Mailbox-Migration</a>
+    <a href="#phase8" class="nav-item">8 – Decommission</a>
+  </div>
+  <div class="nav-group">
+    <div class="nav-label">Referenz</div>
+    <a href="#phase9" class="nav-item">9 – Troubleshooting</a>
+  </div>
+</nav>
+
+<main id="main">
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-tag">DOMAIN.intern · DL380 Gen11 · Windows Server 2025</div>
+  <h1>Exchange Server SE<br>Installation &amp; Migration Runbook</h1>
+  <p class="hero-sub">Migration von 4× DL380 Gen10 (WS2019) auf 4× DL380 Gen11 (WS2025)<br>Exchange SE RTM + Feb 2026 SU · Neue DAG · Kemp LoadBalancer · Tausende Mailboxen</p>
+  <div class="hero-meta">
+    <div class="mc"><div class="lbl">Exchange</div><div class="val">SE RTM + Feb 2026</div></div>
+    <div class="mc"><div class="lbl">Ziel OS</div><div class="val">Windows Server 2025</div></div>
+    <div class="mc"><div class="lbl">Neue Server</div><div class="val">4× DL380 Gen11</div></div>
+    <div class="mc"><div class="lbl">Alte Server</div><div class="val">4× DL380 Gen10 + VM</div></div>
+  </div>
+</div>
+
+<div class="alert crit">
+  <span class="alert-icon">⚠</span>
+  <div class="alert-body">
+    <strong>Kritische Hinweise</strong>
+    Neue DAG zwingend erforderlich: WS2019 (alt) und WS2025 (neu) können NICHT in derselben DAG sein.<br>
+    VDirs und Zertifikat SOFORT nach Exchange-Installation setzen – vor dem nächsten Server!<br>
+    Kemp erst aktivieren wenn Health Checks auf ALLEN neuen Servern grün sind.
+  </div>
+</div>
+
+<!-- OVERVIEW -->
+<div class="phase-section" id="overview">
+  <div class="phase-header">
+    <div class="phase-title"><h2>Gesamtübersicht – Ablauf</h2></div>
+  </div>
+  <table class="data-table">
+    <thead><tr><th>Phase</th><th>Aktion</th><th>Wann</th></tr></thead>
+    <tbody>
+      <tr><td class="ph-col">0 – Heute</td><td>Dokumentation, Witness, CSV, Zertifikat bereitstellen</td><td><span class="when">Heute</span></td></tr>
+      <tr><td class="ph-col">1 – OS Prep</td><td>Windows Features, Prerequisites, Domain Join (alle 4 Server)</td><td><span class="when">Tag 1 Morgen</span></td></tr>
+      <tr><td class="ph-col">2 – Exchange SE</td><td>Installation (Server für Server)</td><td><span class="when">Tag 1</span></td></tr>
+      <tr><td class="ph-col">3 – VDirs + Cert</td><td>VDir URLs + Zertifikat SOFORT nach jeder Installation</td><td><span class="when">Tag 1 – nach jedem Server</span></td></tr>
+      <tr><td class="ph-col">4 – Neue DAG</td><td>DAG-New erstellen, alle 4 Server hinzufügen</td><td><span class="when">Tag 1 Nachmittag</span></td></tr>
+      <tr><td class="ph-col">5 – Datenbanken</td><td>Neue DBs anlegen, Kopien, Seeding abwarten</td><td><span class="when">Tag 1 Nachmittag</span></td></tr>
+      <tr><td class="ph-col">6 – Kemp</td><td>Neue Real Server disabled eintragen, gestaffelt aktivieren</td><td><span class="when">Tag 2</span></td></tr>
+      <tr><td class="ph-col">7 – Migration</td><td>Batches erstellen, Presync, gestaffelter Cutover</td><td><span class="when">Tag 2 – Wochen</span></td></tr>
+      <tr><td class="ph-col">8 – Decommission</td><td>Alte Server aus Kemp, DAG, Exchange deinstallieren</td><td><span class="when">Nach Migration</span></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- PHASE 0 -->
+<div class="phase-section" id="phase0">
+  <div class="phase-header">
+    <div class="phase-num-badge"><span class="phl">Phase</span><span class="phn">0</span></div>
+    <div class="phase-title"><h2>Vorbereitung</h2><p>Heute noch erledigen – morgen direkt mit Phase 1 starten</p></div>
+  </div>
+  <div class="alert warn"><span class="alert-icon">⚡</span><div class="alert-body"><strong>Achtung</strong>Diese Schritte HEUTE abschliessen. Morgen direkt mit Phase 1 starten.</div></div>
+
+  <h3>0.1 Bestehende Umgebung dokumentieren</h3>
+  <div class="code-block"><div class="code-header"><span class="code-lang">PowerShell</span><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></div><pre><span class="cm"># Exchange Server Status</span>
+Get-ExchangeServer | ft Name,AdminDisplayVersion,Site,ServerRole
+
+<span class="cm"># DAG Konfiguration</span>
+Get-DatabaseAvailabilityGroup -Status | fl
+Get-DatabaseAvailabilityGroupNetwork | fl
+
+<span class="cm"># Datenbanken und Kopien</span>
+Get-MailboxDatabase -Status | ft Name,MountedOnServer,ReplicationType,DatabaseSize
+Get-MailboxDatabaseCopyStatus * | ft Name,Status,CopyQueueLength,ReplayQueueLength
+
+<span class="cm"># VDir URLs der bestehenden Server sichern</span>
+Get-OwaVirtualDirectory | ft Server,InternalUrl,ExternalUrl
+Get-WebServicesVirtualDirectory | ft Server,InternalUrl,ExternalUrl
+Get-MapiVirtualDirectory | ft Server,InternalUrl,ExternalUrl
+
+<span class="cm"># Zertifikate</span>
+Get-ExchangeCertificate | ft Thumbprint,Subject,Services,NotAfter
+
+<span class="cm"># Mailbox Inventar exportieren</span>
+Get-Mailbox -ResultSize Unlimited | Get-MailboxStatistics |
+  Select DisplayName,TotalItemSize,Database,ServerName |
+  Export-Csv "C:\temp\mailbox-inventory.csv" -NoTypeInformation</pre></div>
+
+  <h3>0.2 AD und Schema prüfen</h3>
+  <div class="code-block"><div class="code-header"><span class="code-lang">PowerShell</span><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></div><pre><span class="cm"># Schema Master FSMO ermitteln</span>
+netdom query fsmo
+
+<span class="cm"># Exchange Schema Version prüfen (Exchange SE = 17003)</span>
+Get-ADObject "CN=ms-Exch-Schema-Version-Pt,CN=Schema,CN=Configuration,DC=DOMAIN,DC=intern" `
+  -Properties rangeUpper | fl rangeUpper
+
+<span class="cm"># Wenn Schema Master auf WS2025 läuft:</span>
+<span class="cm"># Nov 2025 CU muss installiert sein – sonst AD Replikationsprobleme!</span></pre></div>
+
+  <h3>0.3 Witness Server vorbereiten</h3>
+  <div class="alert info"><span class="alert-icon">ℹ</span><div class="alert-body"><strong>Info</strong>Witness Server darf KEIN Exchange Server sein. Empfehlung: Bestehende VM oder Member Server. Verzeichnis C:\DAGWitness\DAG-New vorab anlegen.</div></div>
+  <div class="code-block"><div class="code-header"><span class="code-lang">PowerShell – Witness Server (lokaler Admin)</span><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></div><pre>New-Item -Path "C:\DAGWitness\DAG-New" -ItemType Directory
+
+$acl = Get-Acl "C:\DAGWitness\DAG-New"
+$rule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+  "DOMAIN\Exchange Trusted Subsystem","FullControl","Allow")
+$acl.SetAccessRule($rule)
+Set-Acl "C:\DAGWitness\DAG-New" $acl</pre></div>
+
+  <h3>0.4 Vorbereitung Checkliste</h3>
+  <ul class="checklist" id="cl0">
+    <li onclick="toggle(this)"><span class="chk"></span>Mailbox-Inventar CSV exportiert und gesichert</li>
+    <li onclick="toggle(this)"><span class="chk"></span>Aktuelle VDir URLs aller Exchange Server dokumentiert</li>
+    <li onclick="toggle(this)"><span class="chk"></span>Zertifikat (PFX) mit Passwort exportiert und auf sicherem Share abgelegt</li>
+    <li onclick="toggle(this)"><span class="chk"></span>Witness Server vorbereitet (Verzeichnis + Berechtigungen)</li>
+    <li onclick="toggle(this)"><span class="chk"></span>DNS A-Records für NewEX01–NewEX04 vorhanden und Rückwärtsauflösung funktioniert</li>
+    <li onclick="toggle(this)"><span class="chk"></span>Netzwerk: MAPI-NIC und Replication-NIC auf neuen Servern konfiguriert</li>
+    <li onclick="toggle(this)"><span class="chk"></span>Installationsmedium Exchange SE RTM + Feb 2026 SU bereit</li>
+    <li onclick="toggle(this)"><span class="chk"></span>Kemp Konfiguration dokumentiert: VIPs, Pools, Health Check URLs</li>
+    <li onclick="toggle(this)"><span class="chk"></span>Maintenancefenster mit allen Stakeholdern kommuniziert</li>
+  </ul>
+</div>
+
+<!-- PHASE 1 -->
+<div class="phase-section" id="phase1">
+  <div class="phase-header">
+    <div class="phase-num-badge"><span class="phl">Phase</span><span class="phn">1</span></div>
+    <div class="phase-title"><h2>OS Prerequisites</h2><p>Auf jedem der 4 neuen Server – sequenziell, nicht parallel</p></div>
+  </div>
+  <div class="alert crit"><span class="alert-icon">⚠</span><div class="alert-body"><strong>Kritisch</strong>Jeden Server einzeln vorbereiten. Alle 4 Server müssen vollständig vorbereitet sein bevor Exchange installiert wird.</div></div>
+
+  <h3>1.1 Windows Features installieren</h3>
+  <div class="code-block"><div class="code-header"><span class="code-lang">PowerShell – Als Administrator</span><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></div><pre>Install-WindowsFeature `
+  Server-Media-Foundation, NET-Framework-45-Features, `
+  RPC-over-HTTP-proxy, RSAT-Clustering, RSAT-Clustering-CmdInterface, `
+  RSAT-Clustering-PowerShell, WAS-Process-Model, Web-Asp-Net45, `
+  Web-Basic-Auth, Web-Client-Auth, Web-Digest-Auth, Web-Dir-Browsing, `
+  Web-Dyn-Compression, Web-Http-Errors, Web-Http-Logging, Web-Http-Redirect, `
+  Web-Http-Tracing, Web-ISAPI-Ext, Web-ISAPI-Filter, Web-Lgcy-Mgmt-Console, `
+  Web-Metabase, Web-Mgmt-Console, Web-Mgmt-Service, Web-Net-Ext45, `
+  Web-Request-Monitor, Web-Server, Web-Stat-Compression, Web-Static-Content, `
+  Web-Windows-Auth, Web-WMI, Windows-Identity-Foundation, RSAT-ADDS</pre></div>
+
+  <h3>1.2 Zusätzliche Prerequisites</h3>
+  <table class="data-table">
+    <thead><tr><th>Komponente</th><th>Aktion / Hinweis</th></tr></thead>
+    <tbody>
+      <tr><td>Visual C++ 2012 Redistributable (x64)</td><td>vcredist_x64_2012.exe – für Exchange SE RTM noch erforderlich</td></tr>
+      <tr><td>Visual C++ 2013 Redistributable (x64)</td><td>vcredist_x64_2013.exe – für Exchange SE RTM noch erforderlich</td></tr>
+      <tr><td>URL Rewrite Module 2.1 für IIS</td><td>rewrite_amd64_en-US.msi von Microsoft</td></tr>
+      <tr><td>.NET Framework 4.8</td><td><code>(Get-ItemProperty "HKLM:SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full").Release</code></td></tr>
+    </tbody>
+  </table>
+
+  <h3>1.3 Domain Join und Netzwerk</h3>
+  <div class="code-block"><div class="code-header"><span class="code-lang">PowerShell</span><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></div><pre><span class="cm"># Domain Join</span>
+Add-Computer -DomainName "DOMAIN.intern" -Restart
+
+<span class="cm"># Nach Neustart – DNS Auflösung prüfen (Vorwärts und Rückwärts)</span>
+Resolve-DnsName "NewEX01.DOMAIN.intern"
+Resolve-DnsName "&lt;IP-Adresse-NewEX01&gt;"
+
+<span class="cm"># Zeit-Sync prüfen (kritisch für Kerberos)</span>
+w32tm /query /status
+w32tm /query /source
+
+<span class="cm"># NICs prüfen – MAPI und Replication</span>
+Get-NetAdapter | ft Name,Status,LinkSpeed
+Get-NetIPAddress | ft InterfaceAlias,IPAddress</pre></div>
+
+  <h3>1.4 Checkliste pro Server</h3>
+  <ul class="checklist">
+    <li onclick="toggle(this)"><span class="chk"></span>Windows Features installiert (kein Fehler im Output)</li>
+    <li onclick="toggle(this)"><span class="chk"></span>C++ 2012 + 2013 Redistributable installiert</li>
+    <li onclick="toggle(this)"><span class="chk"></span>URL Rewrite Module installiert</li>
+    <li onclick="toggle(this)"><span class="chk"></span>.NET 4.8 vorhanden</li>
+    <li onclick="toggle(this)"><span class="chk"></span>Domain Join DOMAIN.intern erfolgreich</li>
+    <li onclick="toggle(this)"><span class="chk"></span>DNS Vorwärts und Rückwärts korrekt</li>
+    <li onclick="toggle(this)"><span class="chk"></span>Zeit-Sync mit DC synchron</li>
+    <li onclick="toggle(this)"><span class="chk"></span>MAPI-NIC und Replication-NIC konfiguriert und aktiv</li>
+    <li onclick="toggle(this)"><span class="chk"></span>Server neugestartet nach Domain Join</li>
+  </ul>
+</div>
+
+<!-- PHASE 2 -->
+<div class="phase-section" id="phase2">
+  <div class="phase-header">
+    <div class="phase-num-badge"><span class="phl">Phase</span><span class="phn">2</span></div>
+    <div class="phase-title"><h2>Exchange SE Installation</h2><p>Ein Server nach dem anderen – danach SOFORT Phase 3</p></div>
+  </div>
+  <div class="alert crit"><span class="alert-icon">⚠</span><div class="alert-body"><strong>Kritisch</strong>NIEMALS alle 4 Server gleichzeitig installieren! Nach jeder einzelnen Installation: sofort Phase 3 (VDirs + Zertifikat) ausführen. Erst dann den nächsten Server installieren.</div></div>
+
+  <h3>2.1 Exchange SE Setup</h3>
+  <div class="code-block"><div class="code-header"><span class="code-lang">CMD – Als Domain Admin / Schema Admin</span><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></div><pre><span class="cm"># Org existiert bereits – KEIN /OrganizationName!</span>
+Setup.exe `
+  /IAcceptExchangeServerLicenseTerms_DiagnosticDataOFF `
+  /Mode:Install `
+  /Role:Mailbox
+
+<span class="cm"># Optional: Zieldirectory anpassen (empfohlen)</span>
+Setup.exe `
+  /IAcceptExchangeServerLicenseTerms_DiagnosticDataOFF `
+  /Mode:Install `
+  /Role:Mailbox `
+  /TargetDir:"D:\Exchange"</pre></div>
+
+  <h3>2.2 Installation prüfen</h3>
+  <div class="code-block"><div class="code-header"><span class="code-lang">PowerShell</span><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></div><pre><span class="cm"># Build Version – muss identisch mit alten Servern sein</span>
+Get-ExchangeServer | ft Name,AdminDisplayVersion
+
+<span class="cm"># Dienste prüfen</span>
+Get-Service MSExchange* | where Status -ne "Running"
+
+<span class="cm"># Health Check</span>
+Test-ServiceHealth -Server NewEX01</pre></div>
+
+  <h3>2.3 Reihenfolge pro Server</h3>
+  <table class="step-table">
+    <tbody>
+      <tr><td class="sn">1</td><td>Exchange SE Setup.exe ausführen</td></tr>
+      <tr><td class="sn">2</td><td><strong>SOFORT → Phase 3.1:</strong> Set-ExchangeVDirs.ps1 ausführen</td></tr>
+      <tr><td class="sn">3</td><td><strong>SOFORT → Phase 3.2:</strong> Import-ExchangeCert.ps1 ausführen</td></tr>
+      <tr><td class="sn">4</td><td><strong>SOFORT → Phase 3.3:</strong> Test-NewExchangeServer.ps1 → alle grün</td></tr>
+      <tr><td class="sn">5</td><td>Erst dann: nächsten Server installieren (zurück zu Phase 2)</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- PHASE 3 -->
+<div class="phase-section" id="phase3">
+  <div class="phase-header">
+    <div class="phase-num-badge" style="background:var(--red)"><span class="phl">Phase</span><span class="phn">3</span></div>
+    <div class="phase-title"><h2>VDirs + Zertifikat</h2><p>SOFORT nach Exchange-Installation – vor dem nächsten Server!</p></div>
+  </div>
+  <div class="alert crit"><span class="alert-icon">⚠</span><div class="alert-body"><strong>Kritisch – sofort ausführen</strong>Diese Phase direkt nach jeder einzelnen Exchange-Installation ausführen, noch bevor der nächste Server installiert wird. Falsche VDir-URLs korrumpieren Outlook-Profile und Autodiscover still im Hintergrund.</div></div>
+
+  <h3>3.1 VDir URLs setzen – Set-ExchangeVDirs.ps1</h3>
+  <div class="code-block"><div class="code-header"><span class="code-lang">PowerShell – Set-ExchangeVDirs.ps1</span><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></div><pre><span class="cm"># Aufruf: .\Set-ExchangeVDirs.ps1 -Server "NewEX01"</span>
+param(
+    [Parameter(Mandatory=$true)]
+    [string]$Server
+)
+
+$int = "https://mail.DOMAIN.intern"
+$ext = "https://mail.DOMAIN.intern"
+
+Write-Host "[$Server] Setze VDir URLs..." -ForegroundColor Cyan
+
+Set-OwaVirtualDirectory `
+  -Identity "$Server\owa (Default Web Site)" `
+  -InternalUrl "$int/owa" -ExternalUrl "$ext/owa"
+
+Set-EcpVirtualDirectory `
+  -Identity "$Server\ecp (Default Web Site)" `
+  -InternalUrl "$int/ecp" -ExternalUrl "$ext/ecp"
+
+Set-WebServicesVirtualDirectory `
+  -Identity "$Server\EWS (Default Web Site)" `
+  -InternalUrl "$int/EWS/Exchange.asmx" -ExternalUrl "$ext/EWS/Exchange.asmx"
+
+Set-OabVirtualDirectory `
+  -Identity "$Server\OAB (Default Web Site)" `
+  -InternalUrl "$int/OAB" -ExternalUrl "$ext/OAB"
+
+Set-MapiVirtualDirectory `
+  -Identity "$Server\mapi (Default Web Site)" `
+  -InternalUrl "$int/mapi" -ExternalUrl "$ext/mapi"
+
+Set-ActiveSyncVirtualDirectory `
+  -Identity "$Server\Microsoft-Server-ActiveSync (Default Web Site)" `
+  -InternalUrl "$int/Microsoft-Server-ActiveSync" `
+  -ExternalUrl "$ext/Microsoft-Server-ActiveSync"
+
+Set-AutodiscoverVirtualDirectory `
+  -Identity "$Server\Autodiscover (Default Web Site)" `
+  -InternalUrl "$int/Autodiscover/Autodiscover.xml" `
+  -ExternalUrl "$ext/Autodiscover/Autodiscover.xml"
+
+<span class="cm"># Verifikation</span>
+Write-Host "[$Server] Verifikation:" -ForegroundColor Yellow
+Get-OwaVirtualDirectory -Server $Server | ft InternalUrl,ExternalUrl
+Get-WebServicesVirtualDirectory -Server $Server | ft InternalUrl,ExternalUrl
+Get-MapiVirtualDirectory -Server $Server | ft InternalUrl,ExternalUrl
+
+<span class="cm"># IIS Neustart</span>
+Invoke-Command -ComputerName $Server -ScriptBlock { iisreset /noforce }
+Write-Host "[$Server] VDirs gesetzt und IIS neu gestartet." -ForegroundColor Green</pre></div>
+
+  <h3>3.2 Zertifikat importieren – Import-ExchangeCert.ps1</h3>
+  <div class="alert warn"><span class="alert-icon">⚡</span><div class="alert-body"><strong>Achtung</strong>Direkt nach den VDirs – kein weiterer Schritt dazwischen.</div></div>
+  <div class="code-block"><div class="code-header"><span class="code-lang">PowerShell – Import-ExchangeCert.ps1</span><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></div><pre><span class="cm"># Aufruf: .\Import-ExchangeCert.ps1 -Server "NewEX01" -CertPath "\\share\exchange.pfx" -CertPassword "PW"</span>
+param(
+    [Parameter(Mandatory=$true)] [string]$Server,
+    [Parameter(Mandatory=$true)] [string]$CertPath,
+    [Parameter(Mandatory=$true)] [string]$CertPassword
+)
+
+$secPw = ConvertTo-SecureString $CertPassword -AsPlainText -Force
+Write-Host "[$Server] Importiere Zertifikat..." -ForegroundColor Cyan
+
+$thumbprint = (Import-ExchangeCertificate `
+  -Server $Server `
+  -FileData ([Byte[]](Get-Content $CertPath -Encoding Byte -ReadCount 0)) `
+  -Password $secPw `
+  -FriendlyName "Exchange SE Cert").Thumbprint
+
+Write-Host "[$Server] Aktiviere Zertifikat..." -ForegroundColor Yellow
+Enable-ExchangeCertificate -Server $Server -Thumbprint $thumbprint -Services IIS,SMTP -Force
+
+<span class="cm"># Verifikation</span>
+Get-ExchangeCertificate -Server $Server | ft Thumbprint,Subject,Services,NotAfter
+Write-Host "[$Server] Zertifikat erfolgreich importiert und aktiviert." -ForegroundColor Green</pre></div>
+
+  <h3>3.3 Health Check – Test-NewExchangeServer.ps1</h3>
+  <div class="code-block"><div class="code-header"><span class="code-lang">PowerShell – Test-NewExchangeServer.ps1</span><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></div><pre><span class="cm"># Aufruf: .\Test-NewExchangeServer.ps1 -Server "NewEX01"</span>
+param([Parameter(Mandatory=$true)] [string]$Server)
+
+$fqdn = "$Server.DOMAIN.intern"
+$errors = @()
+Write-Host "=== Health Check: $Server ===" -ForegroundColor Cyan
+
+<span class="cm"># 1. Build Version</span>
+Write-Host "Build: $((Get-ExchangeServer $Server).AdminDisplayVersion)"
+
+<span class="cm"># 2. Dienste</span>
+$stopped = Get-Service -ComputerName $Server MSExchange* | where Status -ne "Running"
+if ($stopped) { $errors += "Gestoppte Dienste"; Write-Host "FEHLER: Dienste nicht gestartet" -ForegroundColor Red }
+else { Write-Host "OK: Alle Exchange Dienste laufen" -ForegroundColor Green }
+
+<span class="cm"># 3. Service Health</span>
+$unhealthy = Test-ServiceHealth -Server $Server | where { $_.RequiredServicesRunning -eq $false }
+if ($unhealthy) { $errors += "Unhealthy Services"; Write-Host "FEHLER: Service Health" -ForegroundColor Red }
+else { Write-Host "OK: Service Health" -ForegroundColor Green }
+
+<span class="cm"># 4. OWA Health Check</span>
+try {
+  $r = Invoke-WebRequest "https://$fqdn/owa/healthcheck.htm" -UseBasicParsing -TimeoutSec 10
+  if ($r.StatusCode -eq 200) { Write-Host "OK: OWA Healthcheck 200" -ForegroundColor Green }
+  else { $errors += "OWA $($r.StatusCode)"; Write-Host "FEHLER: OWA $($r.StatusCode)" -ForegroundColor Red }
+} catch { $errors += "OWA nicht erreichbar"; Write-Host "FEHLER: OWA nicht erreichbar" -ForegroundColor Red }
+
+<span class="cm"># 5. MAPI Connectivity</span>
+try { Test-MAPIConnectivity -Server $Server | ft DisplayName,Result; Write-Host "OK: MAPI" -ForegroundColor Green }
+catch { $errors += "MAPI Fehler" }
+
+<span class="cm"># 6. VDir URL prüfen</span>
+$url = (Get-OwaVirtualDirectory -Server $Server).InternalUrl
+if ($url -like "*mail.DOMAIN.intern*") { Write-Host "OK: OWA URL: $url" -ForegroundColor Green }
+else { $errors += "OWA URL falsch: $url"; Write-Host "FEHLER: OWA URL: $url" -ForegroundColor Red }
+
+<span class="cm"># 7. Zertifikat</span>
+$cert = Get-ExchangeCertificate -Server $Server | where { $_.Services -match "IIS" }
+if ($cert) { Write-Host "OK: Zertifikat: $($cert.Subject)" -ForegroundColor Green }
+else { $errors += "Kein IIS-Zertifikat"; Write-Host "FEHLER: Kein IIS-Zertifikat" -ForegroundColor Red }
+
+<span class="cm"># Ergebnis</span>
+Write-Host ""
+if ($errors.Count -eq 0) { Write-Host "=== $Server: ALLE CHECKS OK – weiter mit naechstem Server ===" -ForegroundColor Green }
+else { Write-Host "=== $Server: $($errors.Count) FEHLER – NICHT weiter! ===" -ForegroundColor Red
+  $errors | ForEach { Write-Host "  - $_" -ForegroundColor Red } }</pre></div>
+</div>
+
+<!-- PHASE 4 -->
+<div class="phase-section" id="phase4">
+  <div class="phase-header">
+    <div class="phase-num-badge"><span class="phl">Phase</span><span class="phn">4</span></div>
+    <div class="phase-title"><h2>Neue DAG erstellen</h2><p>Zwingend neue DAG wegen OS-Unterschied WS2019 vs WS2025</p></div>
+  </div>
+  <div class="alert info"><span class="alert-icon">ℹ</span><div class="alert-body"><strong>Info</strong>WS2019 (alte Server) und WS2025 (neue Server) können nicht in derselben DAG sein. Neue DAG mit eigenem Witness Server erstellen. Alle 4 neuen Exchange Server in die neue DAG aufnehmen.</div></div>
+
+  <h3>4.1 DAG erstellen</h3>
+  <div class="code-block"><div class="code-header"><span class="code-lang">PowerShell</span><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></div><pre>New-DatabaseAvailabilityGroup `
+  -Name "DAG-New" `
+  -WitnessServer "WitnessServer.DOMAIN.intern" `
+  -WitnessDirectory "C:\DAGWitness\DAG-New" `
+  -DatabaseAvailabilityGroupIpAddresses 0.0.0.0
+
+<span class="cm"># Alle 4 neuen Server zur DAG hinzufügen (sequenziell)</span>
+Add-DatabaseAvailabilityGroupServer -Identity "DAG-New" -MailboxServer "NewEX01"
+Add-DatabaseAvailabilityGroupServer -Identity "DAG-New" -MailboxServer "NewEX02"
+Add-DatabaseAvailabilityGroupServer -Identity "DAG-New" -MailboxServer "NewEX03"
+Add-DatabaseAvailabilityGroupServer -Identity "DAG-New" -MailboxServer "NewEX04"</pre></div>
+
+  <h3>4.2 DAG Netzwerke konfigurieren</h3>
+  <div class="code-block"><div class="code-header"><span class="code-lang">PowerShell</span><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></div><pre>Get-DatabaseAvailabilityGroupNetwork -Identity "DAG-New" | fl
+
+<span class="cm"># MAPI-Netzwerk: Replikation deaktivieren</span>
+Set-DatabaseAvailabilityGroupNetwork -Identity "DAG-New\DAGNetwork01" -ReplicationEnabled $false
+
+<span class="cm"># Replication-Netzwerk: Replikation aktivieren</span>
+Set-DatabaseAvailabilityGroupNetwork -Identity "DAG-New\DAGNetwork02" -ReplicationEnabled $true</pre></div>
+
+  <h3>4.3 DAG Status prüfen</h3>
+  <div class="code-block"><div class="code-header"><span class="code-lang">PowerShell</span><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></div><pre>Get-DatabaseAvailabilityGroup "DAG-New" -Status | fl Members,OperationalServers,PrimaryActiveManager
+<span class="cm"># Alle 4 Server müssen als OperationalServers gelistet sein</span></pre></div>
+</div>
+
+<!-- PHASE 5 -->
+<div class="phase-section" id="phase5">
+  <div class="phase-header">
+    <div class="phase-num-badge"><span class="phl">Phase</span><span class="phn">5</span></div>
+    <div class="phase-title"><h2>Datenbanken anlegen</h2><p>Neue leere DBs auf neuer DAG – mit Redundanz</p></div>
+  </div>
+  <div class="alert info"><span class="alert-icon">ℹ</span><div class="alert-body"><strong>Info</strong>Nie auf C: installieren – immer dedizierte Volumes für EDB und Logs. Empfehlung: 1 DB pro 1000–2000 Mailboxen.</div></div>
+
+  <h3>5.1 Datenbanken erstellen</h3>
+  <div class="code-block"><div class="code-header"><span class="code-lang">PowerShell</span><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></div><pre>$dbConfig = @(
+  @{Name="DB-New-01"; Server="NewEX01"; Edb="D:\DBs\DB-New-01\DB-New-01.edb"; Log="E:\Logs\DB-New-01"},
+  @{Name="DB-New-02"; Server="NewEX02"; Edb="D:\DBs\DB-New-02\DB-New-02.edb"; Log="E:\Logs\DB-New-02"},
+  @{Name="DB-New-03"; Server="NewEX03"; Edb="D:\DBs\DB-New-03\DB-New-03.edb"; Log="E:\Logs\DB-New-03"},
+  @{Name="DB-New-04"; Server="NewEX04"; Edb="D:\DBs\DB-New-04\DB-New-04.edb"; Log="E:\Logs\DB-New-04"}
+)
+
+foreach ($db in $dbConfig) {
+  New-MailboxDatabase -Name $db.Name -Server $db.Server -EdbFilePath $db.Edb -LogFolderPath $db.Log
+  Mount-Database $db.Name
+  Write-Host "DB $($db.Name) erstellt und gemountet" -ForegroundColor Green
+}</pre></div>
+
+  <h3>5.2 DB-Kopien anlegen (Redundanz)</h3>
+  <div class="code-block"><div class="code-header"><span class="code-lang">PowerShell</span><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></div><pre><span class="cm"># DB-New-01 auf NewEX02, NewEX03, NewEX04</span>
+Add-MailboxDatabaseCopy -Identity "DB-New-01" -MailboxServer "NewEX02" -ActivationPreference 2
+Add-MailboxDatabaseCopy -Identity "DB-New-01" -MailboxServer "NewEX03" -ActivationPreference 3
+Add-MailboxDatabaseCopy -Identity "DB-New-01" -MailboxServer "NewEX04" -ActivationPreference 4
+
+<span class="cm"># DB-New-02 auf NewEX01, NewEX03, NewEX04</span>
+Add-MailboxDatabaseCopy -Identity "DB-New-02" -MailboxServer "NewEX01" -ActivationPreference 2
+Add-MailboxDatabaseCopy -Identity "DB-New-02" -MailboxServer "NewEX03" -ActivationPreference 3
+Add-MailboxDatabaseCopy -Identity "DB-New-02" -MailboxServer "NewEX04" -ActivationPreference 4
+
+<span class="cm"># Gleiches Schema für DB-New-03 und DB-New-04 wiederholen...</span>
+
+<span class="cm"># Seeding Status überwachen – warten bis ALLE Healthy</span>
+Get-MailboxDatabaseCopyStatus * | ft Name,Status,CopyQueueLength,ReplayQueueLength
+<span class="cm"># Ziel: Status=Healthy, CopyQueueLength=0, ReplayQueueLength=0</span></pre></div>
+</div>
+
+<!-- PHASE 6 -->
+<div class="phase-section" id="phase6">
+  <div class="phase-header">
+    <div class="phase-num-badge"><span class="phl">Phase</span><span class="phn">6</span></div>
+    <div class="phase-title"><h2>Kemp LoadBalancer</h2><p>Neue Server einpflegen – kontrolliert und gestaffelt</p></div>
+  </div>
+  <div class="alert warn"><span class="alert-icon">⚡</span><div class="alert-body"><strong>Achtung</strong>Neue Server initial DISABLED oder Weight 0 eintragen. Erst einen Server aktivieren, testen, dann die weiteren. Alte Server erst entfernen wenn Migration abgeschlossen.</div></div>
+
+  <h3>6.1 Neue Real Server in Kemp eintragen</h3>
+  <table class="data-table">
+    <thead><tr><th>Einstellung</th><th>Wert</th></tr></thead>
+    <tbody>
+      <tr><td>Real Server IP</td><td>IP-Adresse NewEX01 / NewEX02 / NewEX03 / NewEX04</td></tr>
+      <tr><td>Port</td><td>443 (HTTPS), 25 (SMTP), 80 (HTTP Redirect)</td></tr>
+      <tr><td>Weight</td><td>0 initial (oder Server disabled)</td></tr>
+      <tr><td>Health Check URL</td><td>/owa/healthcheck.htm</td></tr>
+      <tr><td>Health Check Port</td><td>443</td></tr>
+      <tr><td>Health Check Methode</td><td>HTTPS GET</td></tr>
+      <tr><td>Erwarteter Response Code</td><td>200 OK</td></tr>
+    </tbody>
+  </table>
+
+  <h3>6.2 Health Check Endpoint prüfen</h3>
+  <div class="code-block"><div class="code-header"><span class="code-lang">PowerShell</span><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></div><pre>foreach ($server in @("NewEX01","NewEX02","NewEX03","NewEX04")) {
+  $r = Invoke-WebRequest "https://$server.DOMAIN.intern/owa/healthcheck.htm" `
+    -UseBasicParsing -TimeoutSec 10
+  Write-Host "$server - Status: $($r.StatusCode)" `
+    -ForegroundColor $(if ($r.StatusCode -eq 200) {"Green"} else {"Red"})
+}</pre></div>
+
+  <h3>6.3 Gestaffelter Rollout</h3>
+  <table class="step-table">
+    <tbody>
+      <tr><td class="sn">1</td><td>NewEX01 in Kemp aktivieren (Weight normal)</td></tr>
+      <tr><td class="sn">2</td><td>5–10 Minuten beobachten: Kemp Logs, Exchange Logs, Client-Feedback</td></tr>
+      <tr><td class="sn">3</td><td>Test-MAPIConnectivity und OWA manuell prüfen</td></tr>
+      <tr><td class="sn">4</td><td>NewEX02 aktivieren → wieder beobachten</td></tr>
+      <tr><td class="sn">5</td><td>NewEX03 und NewEX04 aktivieren</td></tr>
+      <tr><td class="sn">6</td><td>Alte Server schrittweise auf Weight 0 setzen (noch NICHT entfernen)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="alert info"><span class="alert-icon">ℹ</span><div class="alert-body"><strong>Proxy-Verhalten während Migration</strong>Solange Mailboxen noch auf alten Servern liegen, proxied Exchange den Request automatisch intern zum richtigen Server. Voraussetzung: VDir-URLs auf ALLEN Servern (alt und neu) sind IDENTISCH.</div></div>
+</div>
+
+<!-- PHASE 7 -->
+<div class="phase-section" id="phase7">
+  <div class="phase-header">
+    <div class="phase-num-badge"><span class="phl">Phase</span><span class="phn">7</span></div>
+    <div class="phase-title"><h2>Mailbox-Migration</h2><p>Tausende Mailboxen – gestaffelt und kontrolliert</p></div>
+  </div>
+  <div class="alert info"><span class="alert-icon">ℹ</span><div class="alert-body"><strong>Info</strong>Migration läuft im Hintergrund (Presync). User arbeiten während der Migration normal weiter. Cutover = kurze Unterbrechung pro Mailbox (1–5 Min). Outlook reconnectet automatisch. Niemals alle Mailboxen gleichzeitig.</div></div>
+
+  <h3>7.1 Mailbox-Inventar</h3>
+  <div class="code-block"><div class="code-header"><span class="code-lang">PowerShell</span><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></div><pre>Get-Mailbox -ResultSize Unlimited |
+  Get-MailboxStatistics |
+  Select DisplayName,TotalItemSize,Database,ServerName |
+  Sort-Object TotalItemSize -Descending |
+  Export-Csv "C:\temp\migration-plan.csv" -NoTypeInformation</pre></div>
+
+  <h3>7.2 Migration Batch erstellen – New-MigrationBatch-FromCSV.ps1</h3>
+  <div class="code-block"><div class="code-header"><span class="code-lang">PowerShell – New-MigrationBatch-FromCSV.ps1</span><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></div><pre><span class="cm"># CSV-Format: eine Spalte "EmailAddress"</span>
+<span class="cm"># Aufruf: .\New-MigrationBatch-FromCSV.ps1 -BatchName "Batch-01" -CsvPath "C:\temp\batch01.csv" -TargetDatabase "DB-New-01"</span>
+param(
+    [Parameter(Mandatory=$true)] [string]$BatchName,
+    [Parameter(Mandatory=$true)] [string]$CsvPath,
+    [Parameter(Mandatory=$true)] [string]$TargetDatabase
+)
+
+New-MigrationBatch `
+  -Name $BatchName `
+  -CSVData ([System.IO.File]::ReadAllBytes($CsvPath)) `
+  -TargetDatabases $TargetDatabase `
+  -AutoStart `
+  -AutoComplete:$false
+
+Write-Host "Batch $BatchName gestartet:" -ForegroundColor Green
+Get-MigrationBatch -Identity $BatchName | ft Name,Status,TotalCount</pre></div>
+
+  <div class="code-block"><div class="code-header"><span class="code-lang">PowerShell – Alternativ: Ganze DB auf einmal</span><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></div><pre>New-MigrationBatch `
+  -Name "Batch-DB-Old-01" `
+  -SourceDatabase "DB-Old-01" `
+  -TargetDatabases "DB-New-01","DB-New-02" `
+  -AutoStart `
+  -AutoComplete:$false</pre></div>
+
+  <h3>7.3 Migration überwachen – Watch-Migration.ps1</h3>
+  <div class="code-block"><div class="code-header"><span class="code-lang">PowerShell – Watch-Migration.ps1</span><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></div><pre>while ($true) {
+  Clear-Host
+  Write-Host "=== Migration Status $(Get-Date) ===" -ForegroundColor Cyan
+  Get-MigrationBatch | ft Name,Status,TotalCount,SyncedCount,FailedCount,PercentComplete
+  Write-Host ""
+  Write-Host "--- Fehlgeschlagene ---" -ForegroundColor Yellow
+  Get-MigrationUser -Status Failed | ft DisplayName,Error | Select -First 10
+  Start-Sleep -Seconds 30
+}
+
+<span class="cm"># Einzelne Mailbox detailliert</span>
+Get-MoveRequestStatistics -Identity "user@DOMAIN.intern" -IncludeReport | fl</pre></div>
+
+  <h3>7.4 Cutover durchführen</h3>
+  <div class="alert warn"><span class="alert-icon">⚡</span><div class="alert-body"><strong>Achtung</strong>Cutover erst wenn Status = Synced und SyncedCount = TotalCount. Empfehlung: Abends oder Wochenende für grosse Batches.</div></div>
+  <div class="code-block"><div class="code-header"><span class="code-lang">PowerShell</span><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></div><pre><span class="cm"># Status vor Cutover prüfen</span>
+Get-MigrationBatch -Identity "Batch-01" | ft Status,SyncedCount,TotalCount
+
+<span class="cm"># Cutover auslösen</span>
+Complete-MigrationBatch -Identity "Batch-01"
+
+<span class="cm"># Fortschritt</span>
+Get-MigrationBatch -Identity "Batch-01" | ft Status,SyncedCount,CompletedCount</pre></div>
+
+  <h3>7.5 Cleanup nach Cutover</h3>
+  <div class="code-block"><div class="code-header"><span class="code-lang">PowerShell</span><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></div><pre><span class="cm"># Abgeschlossene MoveRequests entfernen</span>
+Get-MoveRequest -MoveStatus Completed | Remove-MoveRequest
+
+<span class="cm"># Fehlgeschlagene analysieren</span>
+Get-MoveRequest -MoveStatus Failed |
+  Get-MoveRequestStatistics -IncludeReport |
+  fl DisplayName,FailureCode,Message</pre></div>
+
+  <h3>7.6 Sonderfälle</h3>
+  <div class="code-block"><div class="code-header"><span class="code-lang">PowerShell</span><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></div><pre><span class="cm"># Grosse Mailboxen (&gt;20GB) separat und nachts</span>
+Get-Mailbox -ResultSize Unlimited | Get-MailboxStatistics |
+  where { $_.TotalItemSize.Value.ToGB() -gt 20 } | Select DisplayName,TotalItemSize,Database
+
+<span class="cm"># Shared Mailboxen</span>
+Get-Mailbox -RecipientTypeDetails SharedMailbox -ResultSize Unlimited |
+  New-MoveRequest -TargetDatabase "DB-New-01"
+
+<span class="cm"># Room und Equipment</span>
+Get-Mailbox -RecipientTypeDetails RoomMailbox,EquipmentMailbox -ResultSize Unlimited |
+  New-MoveRequest -TargetDatabase "DB-New-01"
+
+<span class="cm"># Archive Mailboxen (separater Move!)</span>
+Get-Mailbox -Archive -ResultSize Unlimited |
+  New-MoveRequest -TargetDatabase "DB-New-Archive-01" -ArchiveOnly</pre></div>
+
+  <h3>7.7 Empfohlene Batch-Reihenfolge</h3>
+  <table class="data-table">
+    <thead><tr><th>Zeitraum</th><th>Aktion</th></tr></thead>
+    <tbody>
+      <tr><td>Tag 1–2</td><td>IT-Abteilung / Testuser (50–100 Mailboxen) – Kemp und Proxy testen</td></tr>
+      <tr><td>Woche 1</td><td>Erste Abteilung, kleine Mailboxen zuerst (Batches à 200–500)</td></tr>
+      <tr><td>Woche 2+</td><td>Weitere Abteilungen gestaffelt – mehrere Batches parallel möglich</td></tr>
+      <tr><td>Ende</td><td>Grosse Mailboxen (&gt;20GB) einzeln / nachts</td></tr>
+      <tr><td>Ende</td><td>Shared / Room / Equipment / Archive Mailboxen</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- PHASE 8 -->
+<div class="phase-section" id="phase8">
+  <div class="phase-header">
+    <div class="phase-num-badge"><span class="phl">Phase</span><span class="phn">8</span></div>
+    <div class="phase-title"><h2>Alte Server decommissionen</h2><p>Erst wenn Migration vollständig abgeschlossen</p></div>
+  </div>
+  <div class="alert crit"><span class="alert-icon">⚠</span><div class="alert-body"><strong>Kritisch</strong>Keinen alten Server abschalten solange noch Mailboxen darauf liegen! Reihenfolge einhalten: Kemp → DAG → Datenbanken → Exchange deinstallieren.</div></div>
+
+  <h3>8.1 Prüfen ob bereit zum Decommission</h3>
+  <div class="code-block"><div class="code-header"><span class="code-lang">PowerShell</span><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></div><pre><span class="cm"># Noch Mailboxen auf alten Servern? – Muss 0 ergeben!</span>
+Get-Mailbox -ResultSize Unlimited | where { $_.ServerName -like "OldEX*" } | Measure-Object
+
+<span class="cm"># Noch aktive MoveRequests? – Muss leer sein!</span>
+Get-MoveRequest -MoveStatus InProgress | where { $_.SourceDatabase -like "*Old*" }
+
+<span class="cm"># Systempostfächer prüfen</span>
+Get-Mailbox -Arbitration -ResultSize Unlimited | where { $_.ServerName -like "OldEX*" }
+<span class="cm"># Falls vorhanden: migrieren</span>
+Get-Mailbox -Arbitration | New-MoveRequest -TargetDatabase "DB-New-01"</pre></div>
+
+  <h3>8.2 Alten Server aus DAG entfernen</h3>
+  <div class="code-block"><div class="code-header"><span class="code-lang">PowerShell</span><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></div><pre>Remove-DatabaseAvailabilityGroupServer -Identity "DAG-Old" -MailboxServer "OldEX01" -ConfigurationOnly:$false
+
+<span class="cm"># DAG auflösen wenn alle Server entfernt</span>
+Remove-DatabaseAvailabilityGroup -Identity "DAG-Old"</pre></div>
+
+  <h3>8.3 Exchange deinstallieren</h3>
+  <div class="code-block"><div class="code-header"><span class="code-lang">CMD</span><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></div><pre>Setup.exe /IAcceptExchangeServerLicenseTerms_DiagnosticDataOFF /Mode:Uninstall
+
+<span class="cm"># Exchange Objekt aus AD entfernen (falls Setup nicht sauber)</span>
+Remove-ExchangeServer -Identity "OldEX01"</pre></div>
+</div>
+
+<!-- PHASE 9 -->
+<div class="phase-section" id="phase9">
+  <div class="phase-header">
+    <div class="phase-num-badge" style="background:var(--text3)"><span class="phl">Phase</span><span class="phn">9</span></div>
+    <div class="phase-title"><h2>Troubleshooting</h2><p>Häufige Probleme, Diagnose, Rollback, No-Go Liste</p></div>
+  </div>
+
+  <h3>9.1 Häufige Probleme und Lösungen</h3>
+  <table class="data-table">
+    <thead><tr><th>Problem</th><th>Lösung</th></tr></thead>
+    <tbody>
+      <tr><td>VDir URLs zeigen noch auf Server-FQDN</td><td>Set-ExchangeVDirs.ps1 erneut ausführen, iisreset</td></tr>
+      <tr><td>Zertifikatsfehler nach Aktivierung im Kemp</td><td>Enable-ExchangeCertificate prüfen, Thumbprint vergleichen</td></tr>
+      <tr><td>OWA Healthcheck gibt 503 zurück</td><td>Get-Service MSExchange* prüfen, iisreset, Eventlog W3SVC</td></tr>
+      <tr><td>DAG Seeding hängt (Status: Seeding)</td><td>CopyQueueLength beobachten, Netzwerk/Firewall prüfen</td></tr>
+      <tr><td>MoveRequest schlägt fehl (CorruptedItem)</td><td>New-MoveRequest mit -BadItemLimit 50 erneut starten</td></tr>
+      <tr><td>Outlook kann nicht verbinden nach Migration</td><td>Test-MAPIConnectivity, Autodiscover testen, VDir URLs prüfen</td></tr>
+      <tr><td>Kemp Health Check schlägt fehl</td><td>Direkt curl auf /owa/healthcheck.htm testen, TLS-Version prüfen</td></tr>
+    </tbody>
+  </table>
+
+  <h3>9.2 Rollback – neuen Server aus Kemp nehmen</h3>
+  <div class="code-block"><div class="code-header"><span class="code-lang">PowerShell</span><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></div><pre><span class="cm"># Im Kemp: Real Server Weight auf 0 oder disabled</span>
+
+<span class="cm"># Exchange Dienste stoppen</span>
+Stop-Service MSExchangeFrontEndTransport
+Stop-Service W3SVC
+
+<span class="cm"># Ursache analysieren</span>
+Get-EventLog -LogName Application -Source *MSExchange* -Newest 50 |
+  where EntryType -eq "Error" | ft TimeGenerated,Message</pre></div>
+
+  <h3>9.3 Wichtige Diagnose-Befehle</h3>
+  <div class="code-block"><div class="code-header"><span class="code-lang">PowerShell</span><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></div><pre>Get-ExchangeServer | ft Name,AdminDisplayVersion,Site
+Get-DatabaseAvailabilityGroup -Status | fl
+Get-MailboxDatabaseCopyStatus * | ft Name,Status,CopyQueueLength,ReplayQueueLength,ContentIndexState
+Test-OutlookConnectivity -ProbeIdentity OutlookMapiHttp.Probe
+Test-WebServicesConnectivity
+Test-ActiveSyncConnectivity
+Get-Queue | ft Identity,Status,MessageCount
+Test-Mailflow</pre></div>
+
+  <h3>9.4 No-Go Liste</h3>
+  <table class="data-table">
+    <thead><tr><th>NICHT tun</th><th>Warum</th></tr></thead>
+    <tbody>
+      <tr><td>Alle 4 Server gleichzeitig installieren</td><td>Kontrollverlust bei Fehlern</td></tr>
+      <tr><td>VDirs nach Kemp-Aktivierung setzen</td><td>Clients bekommen falsche Autodiscover-Antworten</td></tr>
+      <tr><td>Exchange auf C: installieren</td><td>Performance und Kapazitätsprobleme</td></tr>
+      <tr><td>Kemp aktivieren vor Health-Tests</td><td>User bekommen Fehler</td></tr>
+      <tr><td>Alte Server abschalten vor Migration</td><td>Mailbox-Datenverlust</td></tr>
+      <tr><td>Witness auf Exchange Server</td><td>DAG Quorum-Probleme</td></tr>
+      <tr><td>Alle Mailboxen in einem Batch</td><td>Kein Rollback möglich bei Problemen</td></tr>
+      <tr><td>DB-Kopien auf Activation Pref 1 auf mehreren Servern</td><td>Failover-Konflikte</td></tr>
+    </tbody>
+  </table>
+</div>
+
+</main>
+
+<script>
+// Copy button
+function copyCode(btn) {
+  const pre = btn.closest('.code-block').querySelector('pre');
+  const text = pre.innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '✓ Kopiert';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Kopieren'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+// Checklist toggle
+function toggle(li) {
+  li.classList.toggle('done');
+  const chk = li.querySelector('.chk');
+  chk.textContent = li.classList.contains('done') ? '✓' : '';
+  // persist in sessionStorage
+  const list = li.closest('ul');
+  const idx = Array.from(list.children).indexOf(li);
+  const key = 'cl_' + list.id + '_' + idx;
+  sessionStorage.setItem(key, li.classList.contains('done') ? '1' : '0');
+}
+
+// Restore checklist state
+document.querySelectorAll('.checklist').forEach(ul => {
+  ul.querySelectorAll('li').forEach((li, idx) => {
+    const key = 'cl_' + ul.id + '_' + idx;
+    if (sessionStorage.getItem(key) === '1') {
+      li.classList.add('done');
+      li.querySelector('.chk').textContent = '✓';
+    }
+  });
+});
+
+// Progress bar
+window.addEventListener('scroll', () => {
+  const el = document.documentElement;
+  const pct = (el.scrollTop / (el.scrollHeight - el.clientHeight)) * 100;
+  document.getElementById('progress').style.width = pct + '%';
+});
+
+// Active nav highlight
+const sections = document.querySelectorAll('.phase-section, #overview');
+const navItems = document.querySelectorAll('.nav-item');
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      navItems.forEach(n => n.classList.remove('active'));
+      const active = document.querySelector(`.nav-item[href="#${e.target.id}"]`);
+      if (active) active.classList.add('active');
+    }
+  });
+}, { rootMargin: '-20% 0px -70% 0px' });
+sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>
